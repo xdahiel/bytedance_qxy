@@ -217,6 +217,7 @@ example: simpleDict hello
 	}
 	word := os.Args[1]
 	ch := make(chan Response)
+	defer close(ch)
 	go func() {
 		ch <- queryCaiyun(word)
 	}()
