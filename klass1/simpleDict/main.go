@@ -228,16 +228,14 @@ example: simpleDict hello
 		os.Exit(1)
 	}
 	word := os.Args[1]
-	//ch := make(chan Response)
-	//defer close(ch)
-	//go func() {
-	//	ch <- queryCaiyun(word)
-	//}()
-	//go func() {
-	//	ch <- queryVolc(word)
-	//}()
-	//res := <-ch
-
-	res := queryVolc(word)
+	ch := make(chan Response)
+	defer close(ch)
+	go func() {
+		ch <- queryCaiyun(word)
+	}()
+	go func() {
+		ch <- queryVolc(word)
+	}()
+	res := <-ch
 	fmt.Println(res.toString(word))
 }
