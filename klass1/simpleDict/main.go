@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 )
 
 type Response interface {
@@ -104,9 +103,14 @@ func (c CaiyunDictResponse) toString(word string) string {
 func (v VolcDictResponse) toString(word string) string {
 	res := ""
 	for _, item := range v.Words {
-		res += fmt.Sprintln(word, "UK:", item.PosList[0].Phonetics[0].Text, "US:", item.PosList[0].Phonetics[1].Text)
-		for _, exp := range item.PosList[0].Explanations {
-			res += fmt.Sprintln(exp.Text)
+		res += fmt.Sprintln(word, "UK:", "["+item.PosList[0].Phonetics[0].Text+"]", "US:", "["+item.PosList[0].Phonetics[1].Text+"]")
+		for _, exp := range item.PosList {
+			if exp.Type == 13 {
+				res += fmt.Sprint("adj. ")
+			} else if exp.Type == 1 {
+				res += fmt.Sprint("n. ")
+			}
+			res += fmt.Sprintln(exp.Explanations[0].Text)
 		}
 	}
 	return res
@@ -165,8 +169,17 @@ func queryCaiyun(word string) Response {
 
 func queryVolc(word string) Response {
 	client := &http.Client{}
-	var data = strings.NewReader(`{"source_language":"detect","target_language":"ja","text":"good","home_language":"en","category":"","glossary_list":["ailab/menu"]}`)
-	req, err := http.NewRequest("POST", "https://translate.volcengine.com/web/translate/v1/?msToken=&X-Bogus=DFSzswVLQDVIrZHoSW/uNjcHHObO&_signature=_02B4Z6wo00001PvP7CgAAIDDt2M0f.jwGID7z-iAAFyKkm5nsksD26Rkjc7DxEu94WXQKMT-k.4CT4MUpddsyGoEcnaIeDrUo0.cZjRVO9v7tmJs-gVxVce6T7UpAPRq8hZaEEzQ19XqNVL-75", data)
+	request := VolcDictRequest{
+		Text:     word,
+		Language: "en",
+	}
+	buf, err := json.Marshal(request)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var data = bytes.NewReader(buf)
+	//var data = strings.NewReader(`{"text":"good","language":"en"}`)
+	req, err := http.NewRequest("POST", "https://translate.volcengine.com/web/dict/match/v1/?msToken=&X-Bogus=DFSzswVLQDc7EqHoSW8vEDcHHOL7&_signature=_02B4Z6wo00001.7kVtwAAIDAskiOivOOYq.-5FJAAJ3Yr3uJtSzulGGlFB0st7mU8IqLUULj-MoosmPjoskIvXuNJanvA9KHbHCWheYjRb68sQpFM0IKUUkKUdQes-PRgAMchQMrQrXTZubdf1", data)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -174,9 +187,9 @@ func queryVolc(word string) Response {
 	req.Header.Set("accept", "application/json, text/plain, */*")
 	req.Header.Set("accept-language", "zh-CN,zh;q=0.9")
 	req.Header.Set("content-type", "application/json")
-	req.Header.Set("cookie", "x-jupiter-uuid=16519790372301088; ttcid=e2395a6c2d0a4ccbb16860393f0e7d8e22; i18next=en; __tea_cookie_tokens_3569=%257B%2522web_id%2522%253A%25227095196007323895310%2522%252C%2522ssid%2522%253A%25225e0e0540-2693-4ef1-99ed-a871d21a879e%2522%252C%2522user_unique_id%2522%253A%25227095196007323895310%2522%252C%2522timestamp%2522%253A1651979063220%257D; isIntranet=-1; referrer_title=%E7%81%AB%E5%B1%B1%E5%BC%95%E6%93%8E-%E6%99%BA%E8%83%BD%E6%BF%80%E5%8F%91%E5%A2%9E%E9%95%BF; csrfToken=8b13c7ddf17a645320fff792b453c01c; tt_scid=PYisN7WYzZ9MyoluLDcDIAxkkI1shfXDnpkY0T1HvH3-SsHuiIpbN-7xswgEztEAacce")
+	req.Header.Set("cookie", "x-jupiter-uuid=16519790372301088; ttcid=e2395a6c2d0a4ccbb16860393f0e7d8e22; __tea_cookie_tokens_3569=%257B%2522web_id%2522%253A%25227095196007323895310%2522%252C%2522ssid%2522%253A%25225e0e0540-2693-4ef1-99ed-a871d21a879e%2522%252C%2522user_unique_id%2522%253A%25227095196007323895310%2522%252C%2522timestamp%2522%253A1651979063220%257D; isIntranet=-1; referrer_title=%E7%81%AB%E5%B1%B1%E5%BC%95%E6%93%8E-%E6%99%BA%E8%83%BD%E6%BF%80%E5%8F%91%E5%A2%9E%E9%95%BF; tt_scid=PYisN7WYzZ9MyoluLDcDIAxkkI1shfXDnpkY0T1HvH3-SsHuiIpbN-7xswgEztEAacce; i18next=translate")
 	req.Header.Set("origin", "https://translate.volcengine.com")
-	req.Header.Set("referer", "https://translate.volcengine.com/translate?category=&home_language=en&source_language=detect&target_language=ja&text=goo")
+	req.Header.Set("referer", "https://translate.volcengine.com/translate?category=&home_language=zh&source_language=detect&target_language=zh&text=good")
 	req.Header.Set("sec-ch-ua", `" Not A;Brand";v="99", "Chromium";v="101", "Google Chrome";v="101"`)
 	req.Header.Set("sec-ch-ua-mobile", "?0")
 	req.Header.Set("sec-ch-ua-platform", `"Linux"`)
@@ -196,7 +209,6 @@ func queryVolc(word string) Response {
 	if resp.StatusCode != 200 {
 		log.Fatal("bad StatusCode:", resp.StatusCode, "body", string(bodyText))
 	}
-	fmt.Printf("%s\n", bodyText)
 
 	var dictResponse VolcDictResponse
 	err = json.Unmarshal(bodyText, &dictResponse)
@@ -216,14 +228,16 @@ example: simpleDict hello
 		os.Exit(1)
 	}
 	word := os.Args[1]
-	ch := make(chan Response)
-	defer close(ch)
-	go func() {
-		ch <- queryCaiyun(word)
-	}()
-	go func() {
-		ch <- queryVolc(word)
-	}()
-	res := <-ch
+	//ch := make(chan Response)
+	//defer close(ch)
+	//go func() {
+	//	ch <- queryCaiyun(word)
+	//}()
+	//go func() {
+	//	ch <- queryVolc(word)
+	//}()
+	//res := <-ch
+
+	res := queryVolc(word)
 	fmt.Println(res.toString(word))
 }
